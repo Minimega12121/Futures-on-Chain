@@ -3,6 +3,20 @@ import { X } from 'lucide-react';
 import web3 from '../backend/contracts/web3';
 import futures from '../backend/contracts/futures';
 
+const Toast = ({ message, type, onClose }) => (
+  <div className={`fixed top-4 right-4 p-4 rounded-lg shadow-lg transition-all transform translate-x-0 
+    ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'} 
+    text-white max-w-sm z-50 flex items-center justify-between`}>
+    <span>{message}</span>
+    <button 
+      onClick={onClose} 
+      className="ml-4 text-white hover:text-gray-200"
+    >
+      ×
+    </button>
+  </div>
+);
+
 const History = () => {
   const [openPositions, setOpenPositions] = useState([]);
   const [closedPositions, setClosedPositions] = useState([]);
@@ -10,10 +24,26 @@ const History = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [marketPrice, setMarketPrice] = useState("0.00");
   const [activeTab, setActiveTab] = useState('live');
+  const [toast, setToast] = useState(null);
+  const [toastType, setToastType] = useState('info');
 
   const formatInternationalNumber = (number) => {
     return Number(number).toLocaleString('en-US');
-};
+  };
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  const showToast = (message, type = 'info') => {
+    setToast(message);
+    setToastType(type);
+  };
 
   const fetchPositions = async () => {
     try {
@@ -85,11 +115,11 @@ const History = () => {
         gasPrice: web3.utils.toWei("150", "gwei"),
         gas: 300000
       });
-      alert("Position closed successfully!");
+      showToast("Position closed successfully!", "success");
       fetchPositions(); // Refresh the positions after closing
     } catch (error) {
       console.error("Error closing position:", error);
-      alert("Failed to close position. Please try again.");
+      showToast(`Error: ${error.message}`, "error");
     }
   };
 
@@ -204,6 +234,13 @@ const History = () => {
         <PositionTable positions={openPositions} isLive={true} />
       ) : (
         <PositionTable positions={closedPositions} />
+      )}
+      {toast && (
+        <Toast 
+          message={toast} 
+          type={toastType} 
+          onClose={() => setToast(null)} 
+        />
       )}
     </div>
   );

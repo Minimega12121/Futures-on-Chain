@@ -3,11 +3,41 @@ import web3 from "../backend/contracts/web3";
 import futures from "../backend/contracts/futures";
 import token from "../backend/contracts/token";
 
+const Toast = ({ message, type, onClose }) => (
+  <div className={`fixed top-4 right-4 p-4 rounded-lg shadow-lg transition-all transform translate-x-0 
+    ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'} 
+    text-white max-w-sm z-50 flex items-center justify-between`}>
+    <span>{message}</span>
+    <button 
+      onClick={onClose} 
+      className="ml-4 text-white hover:text-gray-200"
+    >
+      ×
+    </button>
+  </div>
+);
+
 const BuySell = () => {
   const [leverage, setLeverage] = useState(1);
   const [tokenAmount, setTokenAmount] = useState(null);
   const [selectedAction, setSelectedAction] = useState("Buy");
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [toastType, setToastType] = useState('info');
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 5000); 
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  const showToast = (message, type = 'info') => {
+    setToast(message);
+    setToastType(type);
+  };
 
   const handleTokenAmountChange = (e) => {
     const value = e.target.value;
@@ -18,7 +48,7 @@ const BuySell = () => {
 
   const handleExecute = async () => {
     if (!tokenAmount || parseFloat(tokenAmount) <= 0) {
-      alert("Please enter a valid token amount");
+      showToast("Please enter a valid token amount", "error");
       return;
     }
 
@@ -26,9 +56,11 @@ const BuySell = () => {
       setLoading(true);
       const accounts = await web3.eth.getAccounts();
       if (!accounts.length) {
-        alert("No accounts found. Please connect your wallet.");
+        showToast("No accounts found. Please connect your wallet.", "error");
         return;
       }
+
+      showToast("Please approve the token transfer in your wallet", "info");
 
       await token.methods
       .approve(
@@ -38,6 +70,8 @@ const BuySell = () => {
       .send({ from: accounts[0],
         gasPrice: web3.utils.toWei("200","gwei"),  // do 150 gwei for fast testing
         gas : 300000});
+    
+        showToast("Please confirm the transaction in your wallet", "info");
 
   await futures.methods
     .openPosition(leverage, web3.utils.toWei(tokenAmount, "ether"), selectedAction=="Buy")
@@ -47,11 +81,11 @@ const BuySell = () => {
       gas : 1000000 // do 150 gwei for fast testing
   });
 
-      alert(`${selectedAction} position opened successfully!`);
+      showToast(`${selectedAction} position opened successfully!`, "success");
       setTokenAmount("");
     } catch (error) {
       console.error("Error executing trade:", error);
-      alert(`Error: ${error.message}`);
+      showToast(`Error: ${error.message}`, "error");
     } finally {
       setLoading(false);
     }
@@ -133,6 +167,13 @@ const BuySell = () => {
           -moz-appearance: textfield; /* Firefox */
         }
       `}</style>
+      {toast && (
+        <Toast 
+          message={toast} 
+          type={toastType} 
+          onClose={() => setToast(null)} 
+        />
+      )}
     </div>
   );
 };
